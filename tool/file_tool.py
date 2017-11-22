@@ -1,6 +1,10 @@
 # encoding=utf-8
 import os
+from zhon.hanzi import punctuation
+import sys
 
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 def read_file_lines(file_path):
     if not os.path.isfile(file_path):
@@ -62,14 +66,16 @@ def read_training_sentences(training_file_path):
 
 # 读取使用空格分割的char 正确label文件作为训练数据
 def read_training_lines(lines):
+    input_sentence_list = []  # 2D list to contain input_char_list
+    all_state_list = []
     input_char_list = []
     input_state_list = []
-
+    tmp = 0
     # read test file and correct states
     for line in lines:
+        tmp += 1
         line = line.strip()
-        # TODO how to deal with empty line in input file
-        if line == '':
+        if line == '':  # there must be a punctuation before an empty line
             continue
         split_array = line.split(' ')
         if len(split_array) != 2:
@@ -77,7 +83,19 @@ def read_training_lines(lines):
             continue
         chinese_char = split_array[0].decode('utf-8')
         correct_state = split_array[1]
-        input_char_list.append(chinese_char)
-        input_state_list.append(correct_state)
+        if chinese_char in punctuation:
+            if len(input_char_list) == 0:   # in case begin with a punctuation
+                continue
+            input_sentence_list.append(input_char_list)
+            all_state_list.append(input_state_list)
+            input_char_list = []   # clear and a new start
+            input_state_list = []
+        else:
+            input_char_list.append(chinese_char)
+            input_state_list.append(correct_state)
 
-    return True, input_char_list, input_state_list
+    return True, input_sentence_list, all_state_list
+
+
+if __name__ == '__main__':
+    print '.'.decode('utf-8') in punctuation

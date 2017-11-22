@@ -1,6 +1,6 @@
 # encoding=utf-8
-import ai_lab_2.HMM_model.hmm_variable as hmm_variable
-import ai_lab_2.tool.global_variable as global_varibale
+import hmm.hmm_variable as hmm_variable
+import tool.global_variable as global_varibale
 import math
 
 
@@ -51,20 +51,19 @@ def read_model_params_from_lines(lines):
 
 
 # 输出hmm训练好的参数trans_prob_matrix, emit_prob_matrix_array 输出到文件
-def write_model_to_file(trans_prob_matrix, emit_prob_matrix_array, output_path):
+def write_model_to_file(trans_prob_matrix, emit_prob_matrix_array, init_state_prob_array, output_path):
     output_file = open(output_path, "w+")
 
-    # 1 write states
+    # 1. write states
     output_file.write(hmm_variable.model_states_key + '\n')
     for i in range(global_varibale.state_count):
         output_file.write('#' + str(i) + ':' + global_varibale.state_array[i] + '\n')
     output_file.write('\n')
 
-    # 2 write init_state
+    # 2. write init_state
     # TODO how to get init states
     output_file.write(hmm_variable.model_init_state_key + '\n')
     # must start with Begin or Single, both End and Interval is zero
-    init_state_prob_array = global_varibale.init_state_prob_array
     init_state_array = []
     for i in init_state_prob_array:
         if i == 0:
@@ -75,7 +74,7 @@ def write_model_to_file(trans_prob_matrix, emit_prob_matrix_array, output_path):
         output_file.write('#' + global_varibale.state_array[i] + ':' + str(init_state_array[i]) + '\n')
     output_file.write('\n')
 
-    # 3 write trans_prob_matrix
+    # 3. write trans_prob_matrix
     output_file.write(hmm_variable.model_prob_trans_key + '\n')
     for i in range(global_varibale.state_count):
         for j in range(global_varibale.state_count):
@@ -83,9 +82,9 @@ def write_model_to_file(trans_prob_matrix, emit_prob_matrix_array, output_path):
         output_file.write('\n')
     output_file.write('\n')
 
-    # 4 write emit_prob_matrix3
+    # 4. write emit_prob_matrix3
     output_file.write(hmm_variable.model_prob_emit_key + '\n')
-    for i in range(global_varibale.state_count):
+    for i in range(global_varibale.state_count):    # hidden label: EOS
         one_map = emit_prob_matrix_array[i]
         output_file.write('#' + global_varibale.state_array[i] + '\n')
         for char, prob in one_map.items():

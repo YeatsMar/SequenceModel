@@ -29,13 +29,13 @@ def train_hmm_model(training_data_path, output_path):
         return False, "Error in __read_training_set"
 
     # calculate basic word frequency to get params
-    status, trans_prob_matrix, emit_prob_matrix_array = __train_model(input_char_list, correct_state_list)
+    status, trans_prob_matrix, emit_prob_matrix_array, init_state_prob_array = __train_model(input_char_list, correct_state_list)
     if not status:
         print "Error in get_init_params"
         return False, response
 
     # write model to file in specific format
-    status, response = model_io.write_model_to_file(trans_prob_matrix, emit_prob_matrix_array, output_path)
+    status, response = model_io.write_model_to_file(trans_prob_matrix, emit_prob_matrix_array, init_state_prob_array, output_path)
     if not status:
         print response
         return False, response
@@ -43,8 +43,9 @@ def train_hmm_model(training_data_path, output_path):
     return True, ''
 
 
-def __train_model(input_char_list, correct_state_list):
+def __train_model(input_sentence_list, all_state_list):
     trans_count_matrix = np.zeros((global_varibale.state_count, global_varibale.state_count))
+    init_state_count = np.zeros(global_varibale.state_count)
     emit_count_dict_array = []
     state_count_array = []
     for i in range(global_varibale.state_count):
@@ -52,48 +53,45 @@ def __train_model(input_char_list, correct_state_list):
         emit_count_dict_array.append(dict())
         # 每个状态出现的次数
         state_count_array.append(0)
+    for input_char_list, correct_state_list in zip(input_sentence_list, all_state_list):
+        correct_state_list.append(u'A')
+        input_char_list.append('')
+        length = len(correct_state_list) - 1
+        total_char_count = len(input_char_list)
+        for i in range(length):
+            this_char = input_char_list[i]
+            this_state = correct_state_list[i]
+            next_state = correct_state_list[i + 1]
+            this_state_index = global_varibale.state_array.index(this_state)
+            next_state_index = global_varibale.state_array.index(next_state)
+            # 0. init state count
+            if i == 0:
+                init_state_count[this_state_index] += 1
 
-    length = len(input_char_list) - 1
-    total_char_count = len(input_char_list)
-    for i in range(length):
-        this_char = input_char_list[i]
-        this_state = correct_state_list[i]
-        next_state = correct_state_list[i + 1]
-        this_state_index = global_varibale.state_array.index(this_state)
-        next_state_index = global_varibale.state_array.index(next_state)
+            # 1. state change: this state --> next state
+            trans_count_matrix[this_state_index][next_state_index] += 1
 
-        # 1 state change: this state --> next state
-        trans_count_matrix[this_state_index][next_state_index] += 1
-
-        # 2 count this char under this state(emit)
-        state_prob_emit_dict = emit_count_dict_array[this_state_index]
-        state_count_array[this_state_index] += 1
-        if state_prob_emit_dict.has_key(this_char):
-            state_prob_emit_dict[this_char] += 1
-        else:
-            state_prob_emit_dict[this_char] = 1
-
-    # TODO: treat last char as new label A
-    last_char = input_char_list[length]
-    last_char_state = correct_state_list[length]
-    last_char_index = global_varibale.state_array.index(last_char_state)
-    state_prob_emit_dict = emit_count_dict_array[last_char_index]
-    state_count_array[last_char_index] += 1
-    if state_prob_emit_dict.has_key(last_char):
-        state_prob_emit_dict[last_char] += 1
-    else:
-        state_prob_emit_dict[last_char] = 1
+            # 2. count this char under this state(emit)
+            state_prob_emit_dict = emit_count_dict_array[this_state_index]
+            state_count_array[this_state_index] += 1
+            if state_prob_emit_dict.has_key(this_char):
+                state_prob_emit_dict[this_char] += 1
+            else:
+                state_prob_emit_dict[this_char] = 1
 
     # check sum
-    status, response = __check_sum(state_count_array, emit_count_dict_array, trans_count_matrix, total_char_count)
-    if not status:
-        print response
-        return False, '', ''
+    # status, response = __check_sum(state_count_array, emit_count_dict_array, trans_count_matrix, total_char_count)
+    # if not status:
+    #     print response
+    #     return False, '', ''
 
     # calculate frequency
-    trans_prob_matrix = np.zeros((4, 4))
+    trans_prob_matrix = np.zeros((global_varibale.state_count, global_varibale.state_count))
     emit_prob_matrix_array = []
-    for i in range(global_varibale.state_count):
+    # 计算初始状态概率
+    num_init = np.sum(init_state_count)
+    init_state_prob_array = (init_state_count + 0.0) / num_init
+    for i in range(global_varibale.state_count):   # hidden label: EOS
         this_state_count = state_count_array[i]
         one_map = emit_count_dict_array[i]
 
@@ -112,7 +110,7 @@ def __train_model(input_char_list, correct_state_list):
             one_emit_prob_matrix[char] = math.log((char_count + 0.0) / this_state_count)
         emit_prob_matrix_array.append(one_emit_prob_matrix)
 
-    return True, trans_prob_matrix, emit_prob_matrix_array
+    return True, trans_prob_matrix, emit_prob_matrix_array, init_state_prob_array
 
 
 def __check_sum(state_count_array, emit_count_dict_array, trans_count_matrix, total_char_count):
@@ -135,6 +133,6 @@ def __check_sum(state_count_array, emit_count_dict_array, trans_count_matrix, to
 
 
 if __name__ == '__main__':
-    training_data_path = "E:\\download\\WeChat Files\\moonkylin14\\Files\\AI LAB2\\train10"
-    output_path = "E:\\download\\WeChat Files\\moonkylin14\\Files\\AI LAB2\\lab_train_data.dat"
+    training_data_path = "data/train.utf8"
+    output_path = "data/test.model"
     train_hmm_model(training_data_path, output_path)
