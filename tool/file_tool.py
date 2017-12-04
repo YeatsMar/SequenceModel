@@ -26,6 +26,7 @@ def read_training_file(training_file_path):
     return status, input_char_list, input_state_list
 
 
+# TODO: unused now, another optimization
 # 根据空行划分句子,一个句子对应一个列表
 # 列表包含句子楼里面的所有char,label序列
 def read_training_sentences(training_file_path):

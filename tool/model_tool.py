@@ -1,7 +1,7 @@
 # encoding=utf-8
 
 # 根据分割结果BE/BE/BME/BE/BME/BE/S转换输入的字符串为小明/硕士/毕业于/中国/科学院/计算/所
-from ai_lab_2.tool import global_variable
+from tool import global_variable
 
 
 def calculate_accuracy(state_string_result, correct_state_string):
@@ -47,3 +47,18 @@ def print_predict_result(returned_states_string, correct_states_string, input_se
     print "calculate_accuracy = ", response
 
     return True, ''
+
+
+def pprint(result_list, all_state_list, input_sentence_list):
+    correct_num = 0
+    total = 0
+    flag = True
+    for result, correct in zip(result_list, all_state_list):
+        if len(result) != len(correct):
+            flag = False
+        for r, c in zip(result, correct):
+            total += 1
+            if r == c:
+                correct_num += 1
+    print 'check flag = ', flag
+    print "calculate_accuracy = ", (correct_num+0.0) / total

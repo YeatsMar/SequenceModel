@@ -61,7 +61,6 @@ def write_model_to_file(trans_prob_matrix, emit_prob_matrix_array, init_state_pr
     output_file.write('\n')
 
     # 2. write init_state
-    # TODO how to get init states
     output_file.write(hmm_variable.model_init_state_key + '\n')
     # must start with Begin or Single, both End and Interval is zero
     init_state_array = []
@@ -69,7 +68,7 @@ def write_model_to_file(trans_prob_matrix, emit_prob_matrix_array, init_state_pr
         if i == 0:
             init_state_array.append(global_varibale.min_number)
         else:
-            init_state_array.append(math.log(i))
+            init_state_array.append(math.log(i))   # todo: log
     for i in range(len(init_state_array)):
         output_file.write('#' + global_varibale.state_array[i] + ':' + str(init_state_array[i]) + '\n')
     output_file.write('\n')

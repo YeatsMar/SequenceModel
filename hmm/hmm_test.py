@@ -1,7 +1,7 @@
 # encoding=utf-8
 import hmm_predict as hmm_model
 import hmm_train as hmm_train
-import ai_lab_2.tool.model_tool as model_tool
+import tool.model_tool as model_tool
 
 
 # 网上找的的一个训练好的模型数据,直接返回一个句子的分词结果
@@ -27,16 +27,17 @@ def test_train_and_predict(training_data_path, output_model_file_path, test_data
 
     # use output_model to predict test data: test_data_path
     print "####### predict start ######## "
-    st, returned_state_string, correct_state_string, origin_sentence = hmm_model.predict(
+    st, result_list, all_state_list, input_sentence_list = hmm_model.predict(
         output_model_file_path, test_data_file)
     if not st:
-        print "Error in hmm main ", returned_state_string
+        print "Error in hmm main ", result_list
     print "####### predict done ######## "
 
     print "####### print result ######## "
-    st, resp = model_tool.print_predict_result(returned_state_string, correct_state_string, origin_sentence)
-    if not st:
-        print resp
+    # st, resp = model_tool.print_predict_result(result_list, all_state_list, input_sentence_list)
+    model_tool.pprint(result_list, all_state_list, input_sentence_list)
+    # if not st:
+    #     print resp
     print "####### TEST END ######## "
 
 
@@ -53,20 +54,13 @@ def test_xiaoming():
 def real_test():
     # 2 训练并测试模型
     # 训练集路径
-    # training_data = "E:\\download\\WeChat Files\\moonkylin14\\Files\\AI LAB2\\train_10_a"
-    # training_data = "E:\\download\\WeChat Files\\moonkylin14\\Files\\AI LAB2\\train_10"
-    training_data = "E:\\download\\WeChat Files\\moonkylin14\\Files\\AI LAB2\\train.utf8"
-    training_data = "/Users/Mar/Desktop/ai_lab_my/train.utf8"
+    training_data = "data/train.utf8"
 
     # 训练集的输出model的路径
-    output_model = "E:\\download\\WeChat Files\\moonkylin14\\Files\\AI LAB2\\lab_train_data.dat"
-    output_model = "/Users/Mar/Desktop/ai_lab_my/hmm.model"
+    output_model = "data/test.model"
 
-    # 测试集路径
-    # test_data_path = "E:\\download\\WeChat Files\\moonkylin14\\Files\\AI LAB2\\test_file_a"
-    test_data_path = training_data
 
-    test_train_and_predict(training_data, output_model, test_data_path)
+    test_train_and_predict(training_data, output_model, training_data)
 
 if __name__ == "__main__":
     real_test()
