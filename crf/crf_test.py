@@ -8,16 +8,16 @@ def test_prediction(template_file, sentence, correct_states_string):
 
 def test_qianqi():
     # 1 测试训练好的模型
-    template_file = "/Users/kylin/Downloads/AI LAB2/template_small"
+    template_file = "data/template_small"
     sentence = u"北京天气"
-    correct_states_string = "BMME"
+    correct_states_string = "BEBE"
     test_prediction(template_file, sentence, correct_states_string)
 
 
 def test_verbit():
-    training_set = "/Users/kylin/Downloads/normandy_scripts/train_beijing"
-    template = "/Users/kylin/Downloads/normandy_scripts/template_beijing"
-    model_output = "/Users/kylin/Downloads/normandy_scripts/crf_model_output_file"
+    training_set = "data/train_beijing"
+    template = "data/template_beijing"
+    model_output = "data/crf_model_output_file"
     crf = crf_train.CRF_TRAINER(training_set, template, model_output)
     # test the case found in zhihu
 
