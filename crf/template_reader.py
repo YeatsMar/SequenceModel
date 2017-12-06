@@ -1,7 +1,6 @@
 # encoding=utf-8
 import re
-import ai_lab_2.tool.json_tool as json_tool
-import ai_lab_2.tool.file_tool as file_tool
+import tool.file_tool as file_tool
 
 
 class TemplateReader:
@@ -11,8 +10,6 @@ class TemplateReader:
         self.macro_split_char = '/'
         self.id_macro_split_char = ':'
 
-        self.unigram_macros = []
-        self.bigram_macros = []
         self.all_macros = []
         self.template_id_list = []
 
@@ -29,21 +26,21 @@ class TemplateReader:
             return False, response
         lines = response
 
-        unigram_list = []
-        bigram_list = []
+        template_list = []
         for line in lines:
             line = line.strip()
             if line.startswith('#'):
                 continue
-            if line.startswith('U'):
-                unigram_list.append(line)
-            elif line == 'B':
-                continue
-            elif line.startswith('B'):
-                bigram_list.append(line)
+            if line.startswith('U') or line.startswith('B'):
+                template_list.append(line)
 
-        self.unigram_macros = self.__apply(unigram_list)
-        self.bigram_macros = self.__apply(bigram_list)
+        status, response = self.__get_macro_list(template_list)
+        if not status:
+            print "Error in get_macros_list"
+            return False, response
+        macros_list = response
+        self.all_macros = macros_list
+
         return True, ''
 
     def __replace(self, m):
@@ -51,14 +48,16 @@ class TemplateReader:
         col = m.group('col')
         return row + self.xy_split_char + col
 
-    def __apply(self, template_line_list):
+    def __get_macro_list(self, template_line_list):
         macros_list = []
         for template_line in template_line_list:
+            # 对line进行replace
             replaced_string = re.sub(self.macro, self.__replace, template_line)
             split_array = replaced_string.split(self.id_macro_split_char)
             if len(split_array) != 2:
                 print "Error template_line [%s] split by : not equal 2 " % template_line
                 continue
+            # 获取这个template的字符串信息
             template_id = split_array[0]
             template_coordinates = split_array[1]
             self.template_id_list.append(template_id)
@@ -73,19 +72,18 @@ class TemplateReader:
                 x = int(xy_list[0])
                 y = int(xy_list[1])
                 template_xy_list.append([x, y])
-            # 一个template对应的输入macro
+            # 一个template对应的输入macro,包含id和x,y坐标list
             one_macro = {
                 "id": template_id,
                 "xy_list": template_xy_list,
             }
             macros_list.append(one_macro)
-            self.all_macros.append(one_macro)
-        return macros_list
+
+        return True, macros_list
 
 
 if __name__ == "__main__":
-    template_file = "/Users/kylin/Downloads/normandy_scripts/template.utf8"
-    # template_small = "/Users/kylin/Downloads/AI LAB2/template_small"
+    template_file = "data/template.utf8"
     x = TemplateReader()
     x.read(template_file)
     print x.get_all_macros()
