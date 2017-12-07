@@ -132,7 +132,7 @@ def viterbi_process(feature_functions, char_list):  # todo: too slow -> matrix o
             for pos in relative_pos:
                 observe_index = first_char_index + pos
                 o += char_list[observe_index]
-            if o not in observations:
+            if not observations.__contains__(o):
                 continue
             param = observations[o]
             if id_macro[0] == 'U':
@@ -159,7 +159,7 @@ def viterbi_process(feature_functions, char_list):  # todo: too slow -> matrix o
                     for pos in relative_pos:
                         observe_index = this_char_index + pos
                         o += char_list[observe_index]
-                    if o not in observations:
+                    if not observations.__contains__(o):
                         continue
                     param = observations[o]
                     if id_macro[0] == 'U':
@@ -202,7 +202,6 @@ def viterbi_process2D(feature_functions, char_list2D):
         predicted_tag_list = viterbi_process(feature_functions, char_list)
         predicted_tag_list2D.append(predicted_tag_list)
     return predicted_tag_list2D
-
 
 
 def train_param(feature_functions, right_counts, char_list2D, predicted_tag_list2D):
@@ -250,7 +249,7 @@ def get_counts(char_list2D, tag_list2D):
                 for pos in relative_pos:
                     observe_index = this_char_index + pos
                     o += char_list[observe_index]
-                if o not in observations:
+                if not observations.__contains__(o):
                     continue
                 param = observations[o]
                 if id_macro[0] == 'U':
@@ -266,7 +265,7 @@ def calculate_accuracy(tag_list, predicted_tag_list):
     correct_counts = 0
     total = len(tag_list) - bias * 2
     for x, y in zip(tag_list, predicted_tag_list):
-        if x == y and x not in extended_tags:
+        if x == y and not extended_tags.__contains__(x):
             correct_counts += 1
     return correct_counts, total
 
@@ -291,7 +290,7 @@ def import_model(filepath='../data/crf_model.json'):
 if __name__ == '__main__':
     global macros
     # Fixed:
-    macros = get_macros()
+    macros = get_macros(template='../data/template2.utf8')
     print('generated macros')
     char_list2D, tag_list2D = get_corpus('../data/train_corpus.utf8')
     # the previous 2 are unrelated
@@ -309,3 +308,4 @@ if __name__ == '__main__':
         print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
         if i % 10:
             store_model(feature_functions)
+    store_model(feature_functions)
