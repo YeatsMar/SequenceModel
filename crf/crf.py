@@ -142,7 +142,7 @@ def viterbi_process(feature_functions, char_list):  # todo: too slow -> matrix o
                 for id_macro, relative_pos in macros.items():
                     o = ''
                     for pos in relative_pos:
-                        observe_index = first_char_index + pos
+                        observe_index = this_char_index + pos
                         o += char_list[observe_index]
                     my_pre_tag = '' if id_macro[0] == 'U' else pre_tag
                     try:
@@ -262,7 +262,7 @@ if __name__ == '__main__':
     # Fixed:
     macros = get_macros(template='../data/template2.utf8')
     print('generated macros')
-    char_list2D, tag_list2D = get_corpus()  #'../data/train_corpus.utf8'
+    char_list2D, tag_list2D = get_corpus('../data/train.utf8')
     # the previous 2 are unrelated
     print('there are %d sentences' % len(char_list2D))
     right_counts = get_counts(char_list2D, tag_list2D)  # proved right, so is generate_functions
@@ -271,13 +271,13 @@ if __name__ == '__main__':
     feature_functions, total_num = generate_feature_functions(char_list2D)   # proved right
     print('there are %d feature functions in this model' % total_num)
     for i in range(5):
-        predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)  # todo: assumed right
+        predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
         print(predicted_tag_list2D)
         if predicted_tag_list2D == tag_list2D:
+            print(1)
             break
         feature_functions = train_param(feature_functions, right_counts, char_list2D, predicted_tag_list2D)
         print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
         if i % 10:
             store_model(feature_functions)
     store_model(feature_functions)
-    pprint(feature_functions)
