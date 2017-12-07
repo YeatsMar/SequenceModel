@@ -34,3 +34,4 @@ def get_corpus(filepath='../data/tiny.utf8'):
 
 def get_init_table(tag_list2D):
     for tag_list in tag_list2D:
+        pass
