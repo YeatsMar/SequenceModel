@@ -1,16 +1,17 @@
 import codecs
 from pprint import pprint
 import numpy as np
-
+import json
 tags = ['B', 'I', 'E', 'S']
 bias = 2
 
-'''
-initialize only once
-@:param template: filepath
-@:return macros<dict>
-'''
+
 def get_macros(template='../data/template.utf8'):
+    """
+    initialize only once
+    :param template: filepath
+    :return:
+    """
     macros = dict()
     with open(template) as fopen:
         for line in fopen:
@@ -24,39 +25,55 @@ def get_macros(template='../data/template.utf8'):
     return macros
 
 
-'''
-initialize only once
-@:param filepath to corpus
-@:return char_list, tag_list, sentence<string>, sentence_tag<string>
-'''
 def get_corpus(filepath='../data/tiny.utf8'):
+    """
+    initialize only once
+    :param filepath: corpus
+    :return: char_list2D, tag_list2D
+    """
+    char_list2D = list()
+    tag_list2D = list()
     with codecs.open(filepath, encoding='utf8') as fopen:
         char_list = list()
         tag_list = list()
         for line in fopen.readlines():
             if ' ' in line:
-                char_list.append(line[0])  # todo: contain \n   2D list
+                char_list.append(line[0])
                 tag_list.append(line[2])
-        sentence = ''.join(char_list)  # unpolluted
-        sentence_tag = ''.join(tag_list)
-        char_list.insert(0, '_I-1')
-        char_list.insert(0, '_I-2')
-        char_list.append('_I+1')
-        char_list.append('_I+2')
-        tag_list.insert(0, '_T-1')
-        tag_list.insert(0, '_T-2')
-        tag_list.append('_T+1')
-        tag_list.append('_T+2')
-        return char_list, tag_list, sentence, sentence_tag
-        # todo: sentences = sentence.split('\n')
+            else:
+                char_list.insert(0, '_I-1')
+                char_list.insert(0, '_I-2')
+                char_list.append('_I+1')
+                char_list.append('_I+2')
+                tag_list.insert(0, '_T-1')
+                tag_list.insert(0, '_T-2')
+                tag_list.append('_T+1')
+                tag_list.append('_T+2')
+                char_list2D.append(char_list)
+                tag_list2D.append(tag_list)
+                # new beginning
+                char_list = list()
+                tag_list = list()
+        if len(char_list):
+            char_list.insert(0, '_I-1')
+            char_list.insert(0, '_I-2')
+            char_list.append('_I+1')
+            char_list.append('_I+2')
+            tag_list.insert(0, '_T-1')
+            tag_list.insert(0, '_T-2')
+            tag_list.append('_T+1')
+            tag_list.append('_T+2')
+            char_list2D.append(char_list)
+            tag_list2D.append(tag_list)
+        return char_list2D, tag_list2D
 
 
-'''
-only for initialization
-@:param char_list
-@:return feature_funtions<dict>, total_num of feature_funtions
-'''
-def generate_feature_functions(char_list):
+def generate_feature_functions(char_list2D):
+    """
+    only for initialization
+    :param char_list2D:
+    :return: feature_funtions<dict>, total_num of feature_funtions
+    """
     global bias, macros
     total_num = 0  # num_params == num_feature_functions
     macros = dict(macros)
@@ -64,11 +81,12 @@ def generate_feature_functions(char_list):
     for id_macro, relative_pos in macros.items():
         this_macro_group = feature_functions[id_macro] = dict()  # id_macro = 'U00'
         char_set = set()
-        for i in range(len(char_list) - bias * 2):
-            tmp = ''
-            for pos in relative_pos:
-                tmp += char_list[i + bias + pos]
-            char_set.add(tmp)
+        for char_list in char_list2D:
+            for i in range(len(char_list) - bias * 2):
+                observation = ''
+                for pos in relative_pos:
+                    observation += char_list[i + bias + pos]
+                char_set.add(observation)
         for char in char_set:
             if id_macro[0] == 'U':
                 this_macro_group[char] = {'B': 0, 'I': 0, 'E': 0, 'S': 0}  # initialize all parameters as 0
@@ -79,7 +97,6 @@ def generate_feature_functions(char_list):
                                           'E': {'B': 0, 'I': 0, 'E': 0, 'S': 0},
                                           'S': {'B': 0, 'I': 0, 'E': 0, 'S': 0},
                                           '_T-1': {'B': 0, 'I': 0, 'E': 0, 'S': 0}
-                                          # todo: impossible for I & E, can manually set some params
                                           }
                 total_num += 16
             else:
@@ -87,13 +104,13 @@ def generate_feature_functions(char_list):
     return feature_functions, total_num
 
 
-'''
-decoding
-@:param char_list
-@:param feature_functions: modified in each iteration of training
-@:return predicted_tag_list
-'''
-def viterbi_process(feature_functions, char_list):
+def viterbi_process(feature_functions, char_list):  # todo: too slow -> matrix operation
+    """
+    decoding a sentence
+    :param feature_functions: [whole won't affect efficiency] modified in each iteration of training
+    :param char_list:
+    :return: predicted_tag_list
+    """
     global tags, bias, macros
     feature_functions = dict(feature_functions)
     char_list = list(char_list)
@@ -173,13 +190,31 @@ def viterbi_process(feature_functions, char_list):
     return predicted_tag_list
 
 
-'''
-@:param right_counts: fixed, thus invoked only once when initializing
-@:param feature_functions: modified in each iteration of training
-@:return feature_functions: after modification
-'''
-def train_param(feature_functions, right_counts, predicted_tag_list):
-    wrong_counts = get_counts(char_list, predicted_tag_list)
+def viterbi_process2D(feature_functions, char_list2D):
+    """
+    2D version of viterbi_process
+    :param feature_functions: the whole
+    :param char_list2D:
+    :return: predicted_tag_list2D
+    """
+    predicted_tag_list2D = list()
+    for char_list in char_list2D:
+        predicted_tag_list = viterbi_process(feature_functions, char_list)
+        predicted_tag_list2D.append(predicted_tag_list)
+    return predicted_tag_list2D
+
+
+
+def train_param(feature_functions, right_counts, char_list2D, predicted_tag_list2D):
+    """
+    modify feature_functions
+    :param feature_functions: whole
+    :param right_counts: whole
+    :param char_list2D:
+    :param predicted_tag_list2D:
+    :return: feature_functions: modified, whole
+    """
+    wrong_counts = get_counts(char_list2D, predicted_tag_list2D)
     # parse all feature_functions
     for id_macro, observations in feature_functions.items():
         for char, param_matrix in observations.items():
@@ -190,41 +225,67 @@ def train_param(feature_functions, right_counts, predicted_tag_list):
             else:
                 for pre_tag, inner_param_matrix in param_matrix.items():
                     for tag in inner_param_matrix.keys():
-                        inner_param_matrix[tag] += right_counts[id_macro][char][pre_tag][tag] - wrong_counts[id_macro][char][pre_tag][tag]
+                        inner_param_matrix[tag] += right_counts[id_macro][char][pre_tag][tag] - \
+                                                   wrong_counts[id_macro][char][pre_tag][tag]
     return feature_functions
 
 
-def get_counts(char_list, tag_list):
+def get_counts(char_list2D, tag_list2D):
+    """
+    reduce times being invoked, since will invoke generate_feature_functions(char_list2D), must process as whole
+    :param char_list2D:
+    :param tag_list2D:
+    :return:
+    """
     global macros, bias
-    init_feature_functions, total_num = generate_feature_functions(char_list)
-    for this_char_index in range(bias, len(char_list) - bias):  # col
-        tag = tag_list[this_char_index]
-        pre_tag = tag_list[this_char_index - 1]
-        for id_macro, observations in init_feature_functions.items():
-            observations = dict(observations)
-            relative_pos = list(macros[id_macro])
-            o = ''
-            for pos in relative_pos:
-                observe_index = this_char_index + pos
-                o += char_list[observe_index]
-            if o not in observations:
-                continue
-            param = observations[o]
-            if id_macro[0] == 'U':
-                param[tag] += 1
-            else:  # bigram
-                param[pre_tag][tag] += 1
+    init_feature_functions, total_num = generate_feature_functions(char_list2D)
+    for char_list, tag_list in zip(char_list2D, tag_list2D):
+        for this_char_index in range(bias, len(char_list) - bias):  # col
+            tag = tag_list[this_char_index]
+            pre_tag = tag_list[this_char_index - 1]
+            for id_macro, observations in init_feature_functions.items():
+                observations = dict(observations)
+                relative_pos = list(macros[id_macro])
+                o = ''
+                for pos in relative_pos:
+                    observe_index = this_char_index + pos
+                    o += char_list[observe_index]
+                if o not in observations:
+                    continue
+                param = observations[o]
+                if id_macro[0] == 'U':
+                    param[tag] += 1
+                else:  # bigram
+                    param[pre_tag][tag] += 1
     return init_feature_functions
 
 
 def calculate_accuracy(tag_list, predicted_tag_list):
+    global extended_tags
+    extended_tags = ['_T-2', '_T-1', '_T+1', '_T+2']
     correct_counts = 0
-    total = len(tag_list) - bias*2
+    total = len(tag_list) - bias * 2
     for x, y in zip(tag_list, predicted_tag_list):
-        if x == y:
+        if x == y and x not in extended_tags:
             correct_counts += 1
-    return correct_counts / total
+    return correct_counts, total
 
+
+def calculate_accuracy2D(tag_list2D, predicted_tag_list2D):
+    c, t = (0, 0)
+    for tag_list, predicted_tag_list in zip(tag_list2D, predicted_tag_list2D):
+        correct_counts, total = calculate_accuracy(tag_list, predicted_tag_list)
+        c += correct_counts
+        t += total
+    return c / t
+
+
+def store_model(feature_functions, filepath='../data/crf_model.json'):
+    json.dump(feature_functions, codecs.open(filepath, 'w', encoding='utf8'))
+
+
+def import_model(filepath='../data/crf_model.json'):
+    return json.load(codecs.open(filepath, 'r', encoding='utf8'))
 
 
 if __name__ == '__main__':
@@ -232,14 +293,19 @@ if __name__ == '__main__':
     # Fixed:
     macros = get_macros()
     print('generated macros')
-    char_list, tag_list, sentence, sentence_tag = get_corpus('../data/train.utf8')  # the previous 2 are unrelated
-    print('parsed corpus')
-    right_counts = get_counts(char_list, tag_list)
+    char_list2D, tag_list2D = get_corpus('../data/train_corpus.utf8')
+    # the previous 2 are unrelated
+    print('there are %d sentences' % len(char_list2D))
+    right_counts = get_counts(char_list2D, tag_list2D)
     print('finish configuration. start training')
     # To train:
-    feature_functions, total_num = generate_feature_functions(char_list)
-    for i in range(10):
-        predicted_tag_list = viterbi_process(feature_functions, char_list)
-        print(predicted_tag_list)
-        feature_functions = train_param(feature_functions, right_counts, predicted_tag_list)
-        print(calculate_accuracy(tag_list, predicted_tag_list))
+    feature_functions, total_num = generate_feature_functions(char_list2D)
+    print('there are %d feature functions in this model' % total_num)
+    for i in range(50):
+        predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
+        if predicted_tag_list2D == tag_list2D:
+            break
+        feature_functions = train_param(feature_functions, right_counts, char_list2D, predicted_tag_list2D)
+        print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
+        if i % 10:
+            store_model(feature_functions)
