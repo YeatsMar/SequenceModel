@@ -97,7 +97,7 @@ def generate_feature_functions(char_list2D):
     return feature_functions, total_num
 
 
-def viterbi_process(feature_functions, char_list):  # todo: too slow -> matrix operation
+def viterbi_process(feature_functions, char_list):  
     """
     decoding a sentence
     :param feature_functions: [whole won't affect efficiency] modified in each iteration of training
@@ -270,7 +270,7 @@ if __name__ == '__main__':
     # To train:
     feature_functions, total_num = generate_feature_functions(char_list2D)   # proved right
     print('there are %d feature functions in this model' % total_num)
-    for i in range(5):
+    for i in range(50):
         predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
         print(predicted_tag_list2D)
         if predicted_tag_list2D == tag_list2D:
