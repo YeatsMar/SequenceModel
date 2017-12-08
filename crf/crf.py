@@ -83,10 +83,11 @@ def generate_feature_functions(char_list2D, tag_list2D):
         for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
-                for pos in relative_pos:
-                    observation += char_list[i + bias + pos]
-                pre_tag = '' if id_macro[0] == 'U' else tag_list[i + bias - 1]
+                if id_macro[0] == 'U':  # remove observation in B macros -> transition table
+                    for pos in relative_pos:
+                        observation += char_list[i + bias + pos]
                 tag = tag_list[i + bias]
+                pre_tag = tag_list[i + bias - 1] if id_macro[0] == 'B' else ''
                 feature_functions[id_macro + observation + pre_tag + tag] = 0
                 total_num += 1
     return feature_functions, total_num
@@ -213,8 +214,9 @@ def get_counts(char_list2D, tag_list2D):
         for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
-                for pos in relative_pos:
-                    observation += char_list[i + bias + pos]
+                if id_macro[0] == 'U':  # remove observation in B macros -> transition table
+                    for pos in relative_pos:
+                        observation += char_list[i + bias + pos]
                 pre_tag = '' if id_macro[0] == 'U' else tag_list[i + bias - 1]
                 tag = tag_list[i + bias]
                 key = id_macro + observation + pre_tag + tag
@@ -223,6 +225,17 @@ def get_counts(char_list2D, tag_list2D):
                 else:
                     feature_functions[id_macro + observation + pre_tag + tag] = 1
     return feature_functions
+
+def filter_features(feature_functions):
+    new_feature_functions = dict()
+    total_num = 0
+    for key in feature_functions.keys():
+        if key[0] == 'B' or feature_functions[key] > 1:
+            new_feature_functions[key] = feature_functions[key]
+            total_num += 1
+    return new_feature_functions, total_num
+
+
 
 
 def calculate_accuracy(tag_list, predicted_tag_list):
@@ -253,7 +266,7 @@ def import_model(filepath='../data/crf_model.json'):
     return json.load(codecs.open(filepath, 'r', encoding='utf8'))
 
 
-if __name__ == '__main__':
+def initial_train():
     global macros
     # Fixed:
     macros = get_macros(template='../data/template2.utf8')
@@ -261,18 +274,68 @@ if __name__ == '__main__':
     char_list2D, tag_list2D = get_corpus('../data/train.utf8')
     # the previous 2 are unrelated
     print('there are %d sentences' % len(char_list2D))
-    right_counts = get_counts(char_list2D, tag_list2D)  # proved right, so is generate_functions
+    right_counts = get_counts(char_list2D, tag_list2D)
+    feature_functions, total_num = filter_features(right_counts)
     print('finish configuration. start training')
     # To train:
-    feature_functions, total_num = generate_feature_functions(char_list2D, tag_list2D)  # proved right
+    # feature_functions, total_num = generate_feature_functions(char_list2D, tag_list2D)
     print('there are %d feature functions in this model' % total_num)
-    for i in range(50):
+    previous_predicted_tag_list2D = None
+    repetitive_num = 0
+    for i in range(100):
         predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
-        print(predicted_tag_list2D)
+        # print(predicted_tag_list2D)
         print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
         if predicted_tag_list2D == tag_list2D:
+            break
+        if predicted_tag_list2D == previous_predicted_tag_list2D:
+            repetitive_num += 1
+        else:
+            repetitive_num = 0
+            previous_predicted_tag_list2D = predicted_tag_list2D
+        if repetitive_num == 5:
             break
         feature_functions = train_param(feature_functions, right_counts, char_list2D, predicted_tag_list2D)
         if i % 10:
             store_model(feature_functions)
     store_model(feature_functions)
+
+
+def continue_train():
+    global macros
+    # Fixed:
+    macros = get_macros(template='../data/template2.utf8')
+    print('generated macros')
+    char_list2D, tag_list2D = get_corpus('../data/train.utf8')
+    # the previous 2 are unrelated
+    print('there are %d sentences' % len(char_list2D))
+    right_counts = get_counts(char_list2D, tag_list2D)
+    feature_functions = import_model()
+    print('finish configuration. start training')
+    # To train:
+    # feature_functions, total_num = generate_feature_functions(char_list2D, tag_list2D)
+    # print('there are %d feature functions in this model' % total_num)
+    previous_predicted_tag_list2D = None
+    repetitive_num = 0
+    for i in range(100):
+        predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
+        print(predicted_tag_list2D)
+        print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
+        if predicted_tag_list2D == tag_list2D:
+            break
+        if predicted_tag_list2D == tag_list2D:
+            break
+        if predicted_tag_list2D == previous_predicted_tag_list2D:
+            repetitive_num += 1
+        else:
+            repetitive_num = 0
+            previous_predicted_tag_list2D = predicted_tag_list2D
+        if repetitive_num == 5:
+            break
+        feature_functions = train_param(feature_functions, right_counts, char_list2D, predicted_tag_list2D)
+        if i % 10:
+            store_model(feature_functions)
+    store_model(feature_functions)
+
+if __name__ == '__main__':
+    continue_train()
