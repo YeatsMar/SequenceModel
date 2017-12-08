@@ -69,7 +69,7 @@ def get_corpus(filepath='../data/tiny.utf8'):
         return char_list2D, tag_list2D
 
 
-def generate_feature_functions(char_list2D):
+def generate_feature_functions(char_list2D, tag_list2D):
     """
     only for initialization
     :param char_list2D:
@@ -80,24 +80,19 @@ def generate_feature_functions(char_list2D):
     macros = dict(macros)
     feature_functions = dict()
     for id_macro, relative_pos in macros.items():
-        for char_list in char_list2D:
+        for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
                 for pos in relative_pos:
                     observation += char_list[i + bias + pos]
-                if id_macro[0] == 'U':
-                    for tag in tags:
-                        feature_functions[id_macro + observation + tag] = 0
-                    total_num += 4
-                else:  # Bigram:  tag-1 tag0
-                    for pre_tag in ['B', 'I', 'E', 'S', '_T-1']:
-                        for tag in tags:
-                            feature_functions[id_macro + observation + pre_tag + tag] = 0
-                    total_num += 16
+                pre_tag = '' if id_macro[0] == 'U' else tag_list[i + bias - 1]
+                tag = tag_list[i + bias]
+                feature_functions[id_macro + observation + pre_tag + tag] = 0
+                total_num += 1
     return feature_functions, total_num
 
 
-def viterbi_process(feature_functions, char_list):  
+def viterbi_process(feature_functions, char_list):
     """
     decoding a sentence
     :param feature_functions: [whole won't affect efficiency] modified in each iteration of training
@@ -199,34 +194,35 @@ def train_param(feature_functions, right_counts, char_list2D, predicted_tag_list
     wrong_counts = get_counts(char_list2D, predicted_tag_list2D)
     # parse all feature_functions
     for key in feature_functions.keys():
-        feature_functions[key] += (right_counts[key] - wrong_counts[key])
+        wrong_count = wrong_counts[key] if wrong_counts.__contains__(key) else 0
+        feature_functions[key] += right_counts[key] - wrong_count
     return feature_functions
 
 
 def get_counts(char_list2D, tag_list2D):
     """
-    reduce times being invoked, since will invoke generate_feature_functions(char_list2D), must process as whole
+    structure of right_counts == structure of init_feature_functions
     :param char_list2D:
     :param tag_list2D:
     :return:
     """
-    global macros, bias
-    init_feature_functions, total_num = generate_feature_functions(char_list2D)
-    for char_list, tag_list in zip(char_list2D, tag_list2D):
-        for this_char_index in range(bias, len(char_list) - bias):  # col
-            tag = tag_list[this_char_index]
-            pre_tag = tag_list[this_char_index - 1]
-            for id_macro, relative_pos in macros.items():
-                o = ''
+    global bias, macros
+    macros = dict(macros)
+    feature_functions = dict()
+    for id_macro, relative_pos in macros.items():
+        for char_list, tag_list in zip(char_list2D, tag_list2D):
+            for i in range(len(char_list) - bias * 2):
+                observation = ''
                 for pos in relative_pos:
-                    observe_index = this_char_index + pos
-                    o += char_list[observe_index]
-                my_pre_tag = '' if id_macro[0] == 'U' else pre_tag
-                try:  # bigram
-                    init_feature_functions[id_macro + o + my_pre_tag + tag] += 1
-                except Exception:
-                    pass
-    return init_feature_functions
+                    observation += char_list[i + bias + pos]
+                pre_tag = '' if id_macro[0] == 'U' else tag_list[i + bias - 1]
+                tag = tag_list[i + bias]
+                key = id_macro + observation + pre_tag + tag
+                if feature_functions.__contains__(key):
+                    feature_functions[id_macro + observation + pre_tag + tag] += 1
+                else:
+                    feature_functions[id_macro + observation + pre_tag + tag] = 1
+    return feature_functions
 
 
 def calculate_accuracy(tag_list, predicted_tag_list):
@@ -268,16 +264,15 @@ if __name__ == '__main__':
     right_counts = get_counts(char_list2D, tag_list2D)  # proved right, so is generate_functions
     print('finish configuration. start training')
     # To train:
-    feature_functions, total_num = generate_feature_functions(char_list2D)   # proved right
+    feature_functions, total_num = generate_feature_functions(char_list2D, tag_list2D)  # proved right
     print('there are %d feature functions in this model' % total_num)
     for i in range(50):
         predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
         print(predicted_tag_list2D)
+        print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
         if predicted_tag_list2D == tag_list2D:
-            print(1)
             break
         feature_functions = train_param(feature_functions, right_counts, char_list2D, predicted_tag_list2D)
-        print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
         if i % 10:
             store_model(feature_functions)
     store_model(feature_functions)
