@@ -468,3 +468,42 @@ screen id: 16441
 0.9051957794993714 (4, 174)
 
 ![G2](data/G2.png)
+
+
+
+之前其实没有转移矩阵用上，查看16441看最新结果
+
+~~~
+there are 36641 feature functions in this model
+0.8906559977900365 0.8588840433858884
+0.9207818881376232 0.8809124454880912
+0.9268072554163501 0.8629095381862909
+
+~~~
+
+
+
+#### H
+
+加上B02:%x[0,0]模板，仍然过滤出现20次以下的模板
+
+screen id: 21365
+
+crf_perS_B.json model
+
+~~~
+there are 41878 feature functions in this model
+18:45
+~~~
+
+
+
+#### I
+
+过滤出现3次以下模板
+
+crf_perS_B2.json model
+
+screen id: 21548
+
+result_B2.json  accuracy

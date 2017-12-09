@@ -84,9 +84,9 @@ def generate_feature_functions(char_list2D, tag_list2D):
         for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
-                if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
-                    for pos in relative_pos:
-                        observation += char_list[i + bias + pos]
+                # if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+                for pos in relative_pos:
+                    observation += char_list[i + bias + pos]
                 tag = tag_list[i + bias]
                 pre_tag = tag_list[i + bias - 1] if id_macro[0] == 'B' else ''
                 feature_functions[id_macro + observation + pre_tag + tag] = 0
@@ -117,10 +117,10 @@ def viterbi_process(feature_functions, char_list):
         score = 0
         for id_macro, relative_pos in macros.items():
             o = ''
-            if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
-                for pos in relative_pos:
-                    observe_index = first_char_index + pos
-                    o += char_list[observe_index]
+            # if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+            for pos in relative_pos:
+                observe_index = first_char_index + pos
+                o += char_list[observe_index]
             my_pre_tag = '' if id_macro[0] == 'U' else '_T-1'
             try:
                 param = feature_functions[id_macro + o + my_pre_tag + tag]
@@ -139,10 +139,10 @@ def viterbi_process(feature_functions, char_list):
                 score = score_matrix[row_track, this_char_index - 1 - bias]  # sum of previous chars
                 for id_macro, relative_pos in macros.items():
                     o = ''
-                    if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
-                        for pos in relative_pos:
-                            observe_index = this_char_index + pos
-                            o += char_list[observe_index]
+                    # if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+                    for pos in relative_pos:
+                        observe_index = this_char_index + pos
+                        o += char_list[observe_index]
                     my_pre_tag = '' if id_macro[0] == 'U' else pre_tag
                     try:
                         param = feature_functions[id_macro + o + my_pre_tag + tag]
@@ -218,9 +218,9 @@ def get_counts(char_list2D, tag_list2D):
         for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
-                if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
-                    for pos in relative_pos:
-                        observation += char_list[i + bias + pos]
+                # if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+                for pos in relative_pos:
+                    observation += char_list[i + bias + pos]
                 pre_tag = '' if id_macro[0] == 'U' else tag_list[i + bias - 1]
                 tag = tag_list[i + bias]
                 key = id_macro + observation + pre_tag + tag
@@ -303,7 +303,7 @@ def train_param_each_sentence(training_set='../data/train.utf8', model='../data/
         right_counts = get_counts(char_list2D, tag_list2D)
         feature_functions, right_counts, total_num = filter_features(right_counts)
     else:
-        feature_functions = import_model('../data/crf_perS.json')  # todo
+        feature_functions = import_model(model)  # todo
         total_num = -1
     right = []
     for j in range(len(char_list2D)):
@@ -434,8 +434,8 @@ def predict(model, test_set):
 
 
 if __name__ == '__main__':
-    accuracy, accuracy_test = train_param_each_sentence(training_set='../data/train_corpus.utf8', model='../data/crf_perS.json', initial=True)
-    json.dump({'train':accuracy, 'test': accuracy_test}, open('result.json', 'w'))
+    accuracy, accuracy_test = train_param_each_sentence(training_set='../data/train_corpus.utf8', model='../data/crf_perS_B.json', initial=True)  # todo
+    json.dump({'train':accuracy, 'test': accuracy_test}, open('result_B.json', 'w'))  # todo
     # plot_result(accuracy)
     # accuracy = []
     # with open('../data/test.json') as fopen:
