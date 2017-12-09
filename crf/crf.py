@@ -2,6 +2,7 @@ import codecs
 from pprint import pprint
 import numpy as np
 import json
+import matplotlib.pyplot as plt
 
 tags = ['B', 'I', 'E', 'S']
 bias = 2
@@ -196,7 +197,8 @@ def train_param(feature_functions, right_counts, char_list2D, predicted_tag_list
     # parse all feature_functions
     for key in feature_functions.keys():
         wrong_count = wrong_counts[key] if wrong_counts.__contains__(key) else 0
-        feature_functions[key] += right_counts[key] - wrong_count
+        right_count = right_counts[key] if right_counts.__contains__(key) else 0
+        feature_functions[key] += right_count - wrong_count
     return feature_functions
 
 
@@ -228,13 +230,15 @@ def get_counts(char_list2D, tag_list2D):
 
 
 def filter_features(feature_functions):
+    right_counts = dict()
     new_feature_functions = dict()
     total_num = 0
     for key in feature_functions.keys():
-        if key[0] == 'B' or feature_functions[key] > 1:  # todo: threshold
-            new_feature_functions[key] = feature_functions[key]
+        if key[0] == 'B' or feature_functions[key] > 2:  # todo: threshold
+            right_counts[key] = feature_functions[key]
+            new_feature_functions[key] = 0
             total_num += 1
-    return new_feature_functions, total_num
+    return new_feature_functions, right_counts, total_num
 
 
 def calculate_accuracy(tag_list, predicted_tag_list):
@@ -265,6 +269,64 @@ def import_model(filepath='../data/crf_model.json'):
     return json.load(codecs.open(filepath, 'r', encoding='utf8'))
 
 
+def get_counts1D(char_list, tag_list):
+    global bias, macros
+    macros = dict(macros)
+    feature_functions = dict()
+    for id_macro, relative_pos in macros.items():
+        for i in range(len(char_list) - bias * 2):
+            observation = ''
+            if id_macro[0] == 'U':  # remove observation in B macros -> transition table
+                for pos in relative_pos:
+                    observation += char_list[i + bias + pos]
+            pre_tag = '' if id_macro[0] == 'U' else tag_list[i + bias - 1]
+            tag = tag_list[i + bias]
+            key = id_macro + observation + pre_tag + tag
+            if feature_functions.__contains__(key):
+                feature_functions[id_macro + observation + pre_tag + tag] += 1
+            else:
+                feature_functions[id_macro + observation + pre_tag + tag] = 1
+    return feature_functions
+
+
+def train_param_each_sentence(training_set='../data/train.utf8', model='../data/crf_model.json'):
+    global macros
+    # Fixed:
+    macros = get_macros(template='../data/template2.utf8')
+    print('generated macros')
+    char_list2D, tag_list2D = get_corpus(training_set)
+    # the previous 2 are unrelated
+    print('there are %d sentences' % len(char_list2D))
+    right_counts = get_counts(char_list2D, tag_list2D)
+    feature_functions, right_counts, total_num = filter_features(right_counts)
+    right = []
+    for j in range(len(char_list2D)):
+        char_list = char_list2D[j]
+        tag_list = tag_list2D[j]
+        right_count = get_counts1D(char_list, tag_list)
+        right.append(right_count)
+    print('finish configuration. start training')
+    # To train:
+    # feature_functions, total_num = generate_feature_functions(char_list2D, tag_list2D)  # initial params as 0
+    print('there are %d feature functions in this model' % total_num)
+    accuracy = []
+    for i in range(200):
+        for j in range(len(char_list2D)):
+            char_list = char_list2D[j]
+            tag_list = tag_list2D[j]
+            predicted_tag_list = viterbi_process(feature_functions, char_list)
+            # print(calculate_accuracy2D([tag_list], [predicted_tag_list]))
+            feature_functions = train_param(feature_functions, right[j], [char_list], [predicted_tag_list])
+        predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
+        a = calculate_accuracy2D(tag_list2D, predicted_tag_list2D)
+        accuracy.append(a)
+        print(a)
+        if i % 10:
+            store_model(feature_functions, model)
+    store_model(feature_functions, model)
+    return accuracy
+
+
 def initial_train(training_set='../data/train.utf8', model='../data/crf_model.json'):
     global macros
     # Fixed:
@@ -274,17 +336,20 @@ def initial_train(training_set='../data/train.utf8', model='../data/crf_model.js
     # the previous 2 are unrelated
     print('there are %d sentences' % len(char_list2D))
     right_counts = get_counts(char_list2D, tag_list2D)
-    feature_functions, total_num = filter_features(right_counts)
+    feature_functions, right_counts, total_num = filter_features(right_counts)
     print('finish configuration. start training')
     # To train:
     # feature_functions, total_num = generate_feature_functions(char_list2D, tag_list2D)  # initial params as 0
     print('there are %d feature functions in this model' % total_num)
     previous_predicted_tag_list2D = None
     repetitive_num = 0
-    for i in range(500):
+    accuracy = []
+    for i in range(200):
         predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
         # print(predicted_tag_list2D)
-        print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
+        a = calculate_accuracy2D(tag_list2D, predicted_tag_list2D)
+        accuracy.append(a)
+        print(a)
         if predicted_tag_list2D == tag_list2D:
             break
         if predicted_tag_list2D == previous_predicted_tag_list2D:
@@ -298,6 +363,15 @@ def initial_train(training_set='../data/train.utf8', model='../data/crf_model.js
         if i % 10:
             store_model(feature_functions, model)
     store_model(feature_functions, model)
+    return accuracy
+
+
+def plot_result(accuracy):
+    plt.figure()
+    plt.plot(accuracy)
+    plt.show()
+    plt.savefig('../data/result.png')
+
 
 
 def continue_train(model='../data/crf_model.json'):
@@ -338,4 +412,12 @@ def continue_train(model='../data/crf_model.json'):
 
 
 if __name__ == '__main__':
-    initial_train('../data/train_corpus.utf8', '../data/crf3_model.json')
+    accuracy = train_param_each_sentence()
+    plot_result(accuracy)
+    # accuracy = []
+    # with open('../data/test.json') as fopen:
+    #     for line in fopen:
+    #         accuracy.append(float(line))
+    # plt.figure()
+    # plt.plot(accuracy)
+    # plt.show()
