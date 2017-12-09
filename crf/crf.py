@@ -8,7 +8,7 @@ tags = ['B', 'I', 'E', 'S']
 bias = 2
 
 
-def get_macros(template='../data/template.utf8'):
+def get_macros(template='../data/template2.utf8'):
     """
     initialize only once
     :param template: filepath
@@ -84,7 +84,7 @@ def generate_feature_functions(char_list2D, tag_list2D):
         for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
-                if id_macro[0] == 'U':  # remove observation in B macros -> transition table
+                if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
                     for pos in relative_pos:
                         observation += char_list[i + bias + pos]
                 tag = tag_list[i + bias]
@@ -117,9 +117,10 @@ def viterbi_process(feature_functions, char_list):
         score = 0
         for id_macro, relative_pos in macros.items():
             o = ''
-            for pos in relative_pos:
-                observe_index = first_char_index + pos
-                o += char_list[observe_index]
+            if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+                for pos in relative_pos:
+                    observe_index = first_char_index + pos
+                    o += char_list[observe_index]
             my_pre_tag = '' if id_macro[0] == 'U' else '_T-1'
             try:
                 param = feature_functions[id_macro + o + my_pre_tag + tag]
@@ -138,9 +139,10 @@ def viterbi_process(feature_functions, char_list):
                 score = score_matrix[row_track, this_char_index - 1 - bias]  # sum of previous chars
                 for id_macro, relative_pos in macros.items():
                     o = ''
-                    for pos in relative_pos:
-                        observe_index = this_char_index + pos
-                        o += char_list[observe_index]
+                    if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+                        for pos in relative_pos:
+                            observe_index = this_char_index + pos
+                            o += char_list[observe_index]
                     my_pre_tag = '' if id_macro[0] == 'U' else pre_tag
                     try:
                         param = feature_functions[id_macro + o + my_pre_tag + tag]
@@ -216,7 +218,7 @@ def get_counts(char_list2D, tag_list2D):
         for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
-                if id_macro[0] == 'U':  # remove observation in B macros -> transition table
+                if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
                     for pos in relative_pos:
                         observation += char_list[i + bias + pos]
                 pre_tag = '' if id_macro[0] == 'U' else tag_list[i + bias - 1]
@@ -234,7 +236,7 @@ def filter_features(feature_functions):
     new_feature_functions = dict()
     total_num = 0
     for key in feature_functions.keys():
-        if key[0] == 'B' or feature_functions[key] > 2:  # todo: threshold
+        if feature_functions[key] > 20:  # todo: threshold
             right_counts[key] = feature_functions[key]
             new_feature_functions[key] = 0
             total_num += 1
@@ -289,7 +291,7 @@ def get_counts1D(char_list, tag_list):
     return feature_functions
 
 
-def train_param_each_sentence(training_set='../data/train.utf8', model='../data/crf_model.json'):
+def train_param_each_sentence(training_set='../data/train.utf8', model='../data/crf_model.json', initial=True):
     global macros
     # Fixed:
     macros = get_macros(template='../data/template2.utf8')
@@ -297,8 +299,12 @@ def train_param_each_sentence(training_set='../data/train.utf8', model='../data/
     char_list2D, tag_list2D = get_corpus(training_set)
     # the previous 2 are unrelated
     print('there are %d sentences' % len(char_list2D))
-    right_counts = get_counts(char_list2D, tag_list2D)
-    feature_functions, right_counts, total_num = filter_features(right_counts)
+    if initial:
+        right_counts = get_counts(char_list2D, tag_list2D)
+        feature_functions, right_counts, total_num = filter_features(right_counts)
+    else:
+        feature_functions = import_model('../data/crf_perS.json')  # todo
+        total_num = -1
     right = []
     for j in range(len(char_list2D)):
         char_list = char_list2D[j]
@@ -310,21 +316,28 @@ def train_param_each_sentence(training_set='../data/train.utf8', model='../data/
     # feature_functions, total_num = generate_feature_functions(char_list2D, tag_list2D)  # initial params as 0
     print('there are %d feature functions in this model' % total_num)
     accuracy = []
-    for i in range(200):
+    accuracy_test = []
+    test_char_list2D, test_tag_list2D = get_corpus('../data/train.utf8')  # test set
+    for i in range(20):
+        predicted_tag_list2D = []
         for j in range(len(char_list2D)):
             char_list = char_list2D[j]
             tag_list = tag_list2D[j]
             predicted_tag_list = viterbi_process(feature_functions, char_list)
             # print(calculate_accuracy2D([tag_list], [predicted_tag_list]))
             feature_functions = train_param(feature_functions, right[j], [char_list], [predicted_tag_list])
-        predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
+            predicted_tag_list2D.append(predicted_tag_list)
         a = calculate_accuracy2D(tag_list2D, predicted_tag_list2D)
         accuracy.append(a)
-        print(a)
-        if i % 10:
-            store_model(feature_functions, model)
-    store_model(feature_functions, model)
-    return accuracy
+        # on test set
+        test_predicted_tag_list2D = viterbi_process2D(feature_functions, test_char_list2D)
+        b = calculate_accuracy2D(test_tag_list2D, test_predicted_tag_list2D)
+        accuracy_test.append(b)
+        print(a, b)
+        store_model(feature_functions, model)
+        if a == 1:
+            break
+    return accuracy, accuracy_test
 
 
 def initial_train(training_set='../data/train.utf8', model='../data/crf_model.json'):
@@ -411,13 +424,28 @@ def continue_train(model='../data/crf_model.json'):
     store_model(feature_functions, model)
 
 
+def predict(model, test_set):
+    global macros
+    macros = get_macros()
+    feature_functions = import_model(model)
+    char_list2D, tag_list2D = get_corpus(test_set)
+    predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
+    print(calculate_accuracy2D(tag_list2D, predicted_tag_list2D))
+
+
 if __name__ == '__main__':
-    accuracy = train_param_each_sentence()
-    plot_result(accuracy)
+    accuracy, accuracy_test = train_param_each_sentence(training_set='../data/train_corpus.utf8', model='../data/crf_perS.json', initial=True)
+    json.dump({'train':accuracy, 'test': accuracy_test}, open('result.json', 'w'))
+    # plot_result(accuracy)
     # accuracy = []
     # with open('../data/test.json') as fopen:
     #     for line in fopen:
     #         accuracy.append(float(line))
+    # data = json.load(open('../data/result.json'))
+    # train = data['train']
+    # test = data['test']
     # plt.figure()
-    # plt.plot(accuracy)
+    # plt.plot(train)
+    # plt.plot(test)
     # plt.show()
+    # predict('../data/crf_perS.json', '../data/train.utf8')
