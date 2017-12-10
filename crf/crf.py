@@ -453,15 +453,18 @@ if __name__ == '__main__':
     # accuracy, accuracy_test = train_param_each_sentence(training_set='../data/train_corpus.utf8', model='../data/crf_perS2.json', initial=True)  # todo
     # json.dump({'train':accuracy, 'test': accuracy_test}, open('result2.json', 'w'))  # todo
     # plot_result(accuracy)
-    accuracy = []
+    # accuracy = []
+    train = []
+    test = []
     with open('../data/test.json') as fopen:
         for line in fopen:
-            accuracy.append(float(line))
+            t = line.split(' ')
+            train.append(float(t[0]))
+            test.append(float(t[1]))
     # data = json.load(open('../data/result_B.json'))
-    # train = data['train']
-    # test = data['test']
+
     plt.figure()
-    plt.plot(accuracy)
-    # plt.plot(test)
+    plt.plot(train)
+    plt.plot(test)
     plt.show()
     # predict('../data/crf_perS.json', '../data/train.utf8')
