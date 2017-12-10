@@ -1,6 +1,7 @@
 import codecs
 import numpy as np
 from pprint import pprint
+import json
 
 zero = -3.14e+100
 TAGS = {'B': 0, 'I': 1, 'E': 2, 'S': 3}
@@ -102,7 +103,7 @@ def viterbi_decoding(char_list):
                     continue
                 if transmission_table[row].__contains__(char_list[col]):
                     this_score += transition_table[i, row] + transmission_table[row][char_list[col]]
-                    if this_score <= zero:
+                    if this_score < zero:
                         raise Exception(this_score)
                         # continue
                 else:
@@ -140,10 +141,28 @@ def calculate_accuracy(tag_list2D, predicted_tag_list2D):
     return right / total
 
 
-if __name__ == '__main__':  # set configuration to python3
+def export_model(filepath='hmm_model.json'):
+    model = {
+        'init_table': init_table,
+        'transmission_table': transmission_table,
+        'transition_table': transmission_table
+    }
+    json.dump(model, open(filepath, 'w'))
+
+
+def import_model(filepath='hmm_model.json'):
+    model = json.load(open(filepath))
+    init_table = model['init_table']
+    transmission_table = model['transmission_table']
+    transition_table = model['transition_table']
+    return init_table, transmission_table, transition_table
+
+
+if __name__ == '__main__':
     char_list2D, tag_list2D = get_corpus(filepath='../data/train_corpus.utf8')
     init_table = get_init_table(tag_list2D)
     transmission_table = get_transmission_table(char_list2D, tag_list2D)
     transition_table = get_transition_table(tag_list2D)
+    export_model()
     predicted_tag_list2D = viterbi_decoding2D(char_list2D)
     print(calculate_accuracy(tag_list2D, predicted_tag_list2D))

@@ -1,25 +1,75 @@
 # coding=utf-8
 import numpy as np
-import sys
+import codecs
 
-import ai_lab_2.tool.file_tool as file_tool
-import ai_lab_2.tool.global_variable as global_variable
-
-reload(sys)
-sys.setdefaultencoding("utf-8")
+TAGS = {'B': 0, 'I': 1, 'E': 2, 'S': 3}
+tags = ['B', 'I', 'E', 'S']
 
 
-def getSeqFromStates(all_labels, observations_labels):
-    state_index_map = {}
+def get_corpus(filepath='../data/tiny.utf8'):
+    """
+    concatenate sentences into one
+    :param filepath:
+    :return:
+    """
+    char_list = list()
+    tag_list = list()
+    with codecs.open(filepath, encoding='utf8') as fopen:
+        for line in fopen.readlines():
+            if ' ' in line:
+                char_list.append(line[0])
+                tag_list.append(line[2])
+    return char_list, tag_list
+
+
+def get_init_table(tag_list):
+    return np.array([tag_list[0] == 'B', 0, 0, tag_list[0] == 'S'])
+
+
+def get_transmission_table(char_list, tag_list):
+    global char_dict
+    # unique_chars = set(char_list)
+    char_dict = dict()
     i = 0
-    for state in all_labels:
-        state_index_map[state] = i
+    for char in char_list:
+        if not char_dict.__contains__(char):
+            char_dict[char] = i
+            i += 1
+    T = len(char_list)
+    B = np.zeros([4, T])
+    # count
+    for char, tag in zip(char_list, tag_list):
+        B[TAGS[tag], char_dict[char]] += 1
+    # calculate probability
+    for row in B:
+        total = np.sum(row)
+        if total != 0:
+            row /= total
+    return B
+
+
+def get_transition_table(tag_list):
+    A = np.zeros([4, 4])
+    # count
+    for i in range(len(tag_list) - 1):
+        tag = tag_list[i]
+        next_tag = tag_list[i + 1]
+        A[TAGS[tag]][TAGS[next_tag]] += 1
+    # calculate probability
+    for row in A:
+        total = sum(row)
+        if total != 0:
+            row /= total
+    return A
+
+
+def getSeqFromStates(char_list):
+    global char_dict
+    result = np.zeros(len(char_list), dtype=int)
+    i = 0
+    for char in char_list:
+        result[i] = char_dict[char]
         i += 1
-    result = np.zeros((len(observations_labels)), dtype=float)
-    index = 0
-    for observationsState in observations_labels:
-        result[index] = state_index_map[observationsState]
-        index += 1
     return result
 
 
@@ -31,7 +81,6 @@ def forward(A, B, pi, observationsSeq):
     for t in range(1, T):
         for n in range(0, N):
             alpha[t, n] = np.dot(alpha[t - 1, :], A[:, n]) * B[n, observationsSeq[t]]  # 使用内积简化代码
-    pom = np.sum(alpha[T - 1, :])
     return alpha
 
 
@@ -52,7 +101,7 @@ def forwardAndBackword(observationsSeq, alpha, beta):
     T = len(observationsSeq)
     for t in range(T):
         pom = np.sum(alpha[t, :] * beta[t, :])
-        print "pom = ", pom
+        print('pom = ', pom)
 
 
 # 给定参数模型”入”,和观测序列O,在时刻t处在状态i且时刻为t+1处在状态为j的概率 ε(t)(i,j)
@@ -82,11 +131,11 @@ def get_gamma(epsilon, alpha, beta, observationsSeq):
     prod = (alpha[T - 1, :] * beta[T - 1, :])
     last_T_line = prod / np.sum(prod)
     if np.sum(prod) < 0.000000001:
-        print "prod too small"
-        print "prod = ", prod
-        print "alpha ", alpha
-        print "alpha[T - 1, :] = ", alpha[T - 1, :]
-        print "beta[T - 1, :] = ", beta[T - 1, :]
+        print('prod too small')
+        print('prod = ', prod)
+        print('alpha ', alpha)
+        print('alpha[T - 1, :] = ', alpha[T - 1, :])
+        print('beta[T - 1, :] = ', beta[T - 1, :])
     gamma = np.vstack((gamma, last_T_line))
     return gamma
 
@@ -94,21 +143,18 @@ def get_gamma(epsilon, alpha, beta, observationsSeq):
 def get_gamma2(alpha, beta):
     # 任意取一个时间,都可以获取分母,就是pom
     length = len(alpha)
-    t = length / 2
+    t = int(length / 2)   # todo
     pom = np.sum(alpha[t, :] * beta[t, :])
     if pom < 0.000000001:
-        print "pom too small"
-        print "pom = ", pom
-        print "alpha ", alpha
-        print "beta ", beta
+        print('pom too small')
+        print('pom = ', pom)
+        print('alpha ', alpha)
+        print('beta ', beta)
     gamma2 = alpha * beta / pom
     return gamma2
 
 
 def train_with_EM_algo(A, B, pi, observationsSeq, criterion=0.001):
-    T = len(observationsSeq)
-    N = len(pi)
-
     while True:
         # alpha_t(i) = P(O_1 O_2 ... O_t, q_t = S_i | hmm)
         alpha = forward(A, B, pi, observationsSeq)
@@ -120,7 +166,7 @@ def train_with_EM_algo(A, B, pi, observationsSeq, criterion=0.001):
         epsilon = get_epsilon(A, B, pi, alpha, beta, observationsSeq)
 
         # 根据xi就可以求出gamma，注意最后缺了一项要单独补上来
-        gamma = get_gamma(epsilon, alpha, beta, observationsSeq)
+        # gamma = get_gamma(epsilon, alpha, beta, observationsSeq)
         gamma = get_gamma2(alpha, beta)
 
         newpi = gamma[0, :]
@@ -128,54 +174,40 @@ def train_with_EM_algo(A, B, pi, observationsSeq, criterion=0.001):
         newA = np.sum(epsilon, axis=0) / np.sum(gamma[:-1, :], axis=0).reshape(-1, 1)
 
         newB = np.zeros(B.shape, dtype=float)
-        for k in range(B.shape[1]):
+        for k in range(B.shape[1]):  # T: number of unique chars
             mask = observationsSeq == k
             newB[:, k] = np.sum(gamma[mask, :], axis=0) / np.sum(gamma, axis=0)
+            # gamma: T*4; np.sum(gamma, axis=0): 1*4; B: 4*T; newB[:, k]: 4*1;
 
         if np.max(abs(pi - newpi)) < criterion and \
-                        np.max(abs(A - newA)) < criterion and \
-                        np.max(abs(B - newB)) < criterion:
+                np.max(abs(A - newA)) < criterion and \
+                np.max(abs(B - newB)) < criterion:
             break
 
         A, B, pi = newA, newB, newpi
+        print(A, B, pi)
     return A, B, pi
 
 
-def test_forward():
+def train():
+    char_list, tag_list = get_corpus()
     # transit states * states
-    A = np.array([
-        [0.5, 0.2, 0.3],
-        [0.3, 0.5, 0.2],
-        [0.2, 0.3, 0.5]])
-    # emit states * label
-    B = np.array([
-        [0.5, 0.5],
-        [0.4, 0.6],
-        [0.7, 0.3]])
+    A = get_transition_table(tag_list)
+    # emit states * observation
+    B = get_transmission_table(char_list, tag_list)
     # init state probs
-    pi = np.array([0.2, 0.4, 0.4])
-    observationsLabels = ['red', 'white', 'red', 'white', 'red', 'red']
-    all_labels = ['red', 'white']
-    observationsSeq = getSeqFromStates(all_labels, observationsLabels)
-
-    print "A = ", A
-    print "B = ", B
-    print "pi = ", pi
+    pi = get_init_table(tag_list)
+    observationsSeq = getSeqFromStates(char_list)
+    print('A = ', A)
+    print('B = ', B)
+    print('pi = ', pi)
     # label在all_labels里面的下表构成了数组
-    print "observationsSeq = ", observationsSeq
-    alpha = forward(A, B, pi, observationsSeq)
-    print "alpha = ", alpha
-    beta = backward(A, B, pi, observationsSeq)
-    print "beta = ", beta
-    forwardAndBackword(observationsSeq, alpha, beta)
-    epsilon = get_epsilon(A, B, pi, alpha, beta, observationsSeq)
-    print "epsilon = ", epsilon
-    gamma = get_gamma(epsilon, alpha, beta, observationsSeq)
-    print "gamma = ", gamma
-    gamma2 = get_gamma2(alpha, beta)
-    print "gamma2 = ", gamma2
-    print "diff gamma-gamma2", gamma - gamma2
+    print('observationsSeq = ', observationsSeq)
+    A, B, pi = train_with_EM_algo(A, B, pi, observationsSeq)
+    print('A = ', A)
+    print('B = ', B)
+    print('pi = ', pi)
+
 
 if __name__ == '__main__':
-    test_forward()
-    test_file()
+    train()
