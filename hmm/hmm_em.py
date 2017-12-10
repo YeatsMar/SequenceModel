@@ -23,7 +23,7 @@ def get_corpus(filepath='../data/tiny.utf8'):
 
 
 def get_init_table(tag_list):
-    return np.array([tag_list[0] == 'B', 0, 0, tag_list[0] == 'S'])
+    return np.array([0.45, 0.05, 0.05, 0.45])
 
 
 def get_transmission_table(char_list, tag_list):
@@ -74,26 +74,51 @@ def getSeqFromStates(char_list):
 
 
 def forward(A, B, pi, observationsSeq):
+    """
+    calculate alpha: matrix[T,4]
+    :param A:
+    :param B:
+    :param pi:
+    :param observationsSeq:
+    :return:
+    """
     T = len(observationsSeq)
     N = len(pi)
     alpha = np.zeros((T, N), dtype=float)
-    alpha[0, :] = pi * B[:, observationsSeq[0]]  # numpy可以简化循环
+    alpha[0, :] = pi * B[:, observationsSeq[0]].T  # alpha[1,4] = pi[1,4] * B[1, 4]
+    # 归一化因子
+    c = np.zeros(T)
+    c[0] = np.sum(alpha[0])
+    alpha[0] = alpha[0] / c[0]  # 矩阵单元除
+    # 递归传递
     for t in range(1, T):
         for n in range(0, N):
             alpha[t, n] = np.dot(alpha[t - 1, :], A[:, n]) * B[n, observationsSeq[t]]  # 使用内积简化代码
-    return alpha
+        c[t] = np.sum(alpha[t])
+        if c[t] == 0: continue
+        alpha[t] = alpha[t] / c[t]
+    return alpha, c
 
 
-# 计算公式中的beita二维数组
-def backward(A, B, pi, observationsSeq):
+def backward(A, B, pi, observationsSeq, c):
+    """
+    calculate beta: matrix[T,4]
+    :param A: 
+    :param B: 
+    :param pi: 
+    :param c: 归一化因子
+    :param observationsSeq:
+    :return: 
+    """
     T = len(observationsSeq)
     N = len(pi)
     beta = np.zeros((T, N), dtype=float)
-    beta[T - 1, :] = 1
+    beta[T - 1, :] = 1  # 最后概率累积一定为1
     for t in reversed(range(T - 1)):
         for n in range(N):
             beta[t, n] = np.sum(A[n, :] * B[:, observationsSeq[t + 1]] * beta[t + 1, :])
-    pom = np.sum(pi * B[:, 0] * beta[0, :])
+        if c[t + 1] == 0: continue
+        beta[t] = beta[t] / c[t + 1]  # 矩阵单元除
     return beta
 
 
@@ -104,29 +129,39 @@ def forwardAndBackword(observationsSeq, alpha, beta):
         print('pom = ', pom)
 
 
-# 给定参数模型”入”,和观测序列O,在时刻t处在状态i且时刻为t+1处在状态为j的概率 ε(t)(i,j)
 def get_epsilon(A, B, pi, alpha, beta, observationsSeq):
+    """
+    给定参数模型”入”,和观测序列O,在时刻t处在状态i且时刻为t+1处在状态为j的概率 ε(t)(i,j)= P(qt=Si,qt+1=Sj | O,λ)
+    :param A:
+    :param B:
+    :param pi:
+    :param alpha:
+    :param beta:
+    :param observationsSeq:
+    :return:
+    """
     T = len(observationsSeq)
     N = len(pi)
-    # 根据公式求解XIt(i,j) = P(qt=Si,qt+1=Sj | O,λ)
     xi = np.zeros((T - 1, N, N), dtype=float)
-    # t = 0,1,2,...,T-2 因为T-1后面没有状态了
     for t in range(T - 1):
-        # 计算一个t对应的矩阵
-        # fen mu down
         denominator = np.sum(np.dot(alpha[t, :], A) * B[:, observationsSeq[t + 1]] * beta[t + 1, :])
-        for i in range(N):
-            # fen zi up
+        for i in range(N):  # 当前标签
             molecular = alpha[t, i] * A[i, :] * B[:, observationsSeq[t + 1]] * beta[t + 1, :]
-            xi[t, i, :] = molecular / denominator
+            xi[t, i, :] = molecular / denominator  # todo: xi[t, i, :]
     return xi
 
 
-# 在给定模型参数和观测序列的前提下,t时刻处在状态i的概率. gamma(t)(i)
 def get_gamma(epsilon, alpha, beta, observationsSeq):
+    """
+    在给定模型参数和观测序列的前提下,t时刻处在状态i的概率. gamma(t)(i)
+    根据epsilon就可以求出gamma，最后缺了一项要单独补上来
+    :param epsilon:
+    :param alpha:
+    :param beta:
+    :param observationsSeq:
+    :return:
+    """
     T = len(observationsSeq)
-    # 根据xi就可以求出gamma，注意最后缺了一项要单独补上来
-    # axis = 2时，对矩阵每个元素进行求和，即对你矩阵中每个列表内的元素求和
     gamma = np.sum(epsilon, axis=2)
     prod = (alpha[T - 1, :] * beta[T - 1, :])
     last_T_line = prod / np.sum(prod)
@@ -157,26 +192,28 @@ def get_gamma2(alpha, beta):
 def train_with_EM_algo(A, B, pi, observationsSeq, criterion=0.001):
     while True:
         # alpha_t(i) = P(O_1 O_2 ... O_t, q_t = S_i | hmm)
-        alpha = forward(A, B, pi, observationsSeq)
+        alpha, c = forward(A, B, pi, observationsSeq)
 
         # beta_t(i) = P(O_t+1 O_t+2 ... O_T | q_t = S_i , hmm)
-        beta = backward(A, B, pi, observationsSeq)
+        beta = backward(A, B, pi, observationsSeq, c)
 
-        # 根据公式求解epsilon(t)(i,j) = P(qt=Si,qt+1=Sj | O,λ)
         epsilon = get_epsilon(A, B, pi, alpha, beta, observationsSeq)
 
-        # 根据xi就可以求出gamma，注意最后缺了一项要单独补上来
-        # gamma = get_gamma(epsilon, alpha, beta, observationsSeq)
-        gamma = get_gamma2(alpha, beta)
+        gamma = get_gamma(epsilon, alpha, beta, observationsSeq)
+        # gamma = get_gamma2(alpha, beta)
 
         newpi = gamma[0, :]
-        # 当参数axis = 0时，求矩阵每一列上元素的和
-        newA = np.sum(epsilon, axis=0) / np.sum(gamma[:-1, :], axis=0).reshape(-1, 1)
+        for i in range(len(c)):
+            if c[i] == 0:
+                c[i] = 1
+        c = c.repeat(gamma.shape[1])
+        c = c.reshape([-1,4])
+        newA = np.sum(epsilon, axis=0) / np.sum(gamma[:-1, :]* c[:-1], axis=0).reshape(-1, 1)
 
         newB = np.zeros(B.shape, dtype=float)
         for k in range(B.shape[1]):  # T: number of unique chars
             mask = observationsSeq == k
-            newB[:, k] = np.sum(gamma[mask, :], axis=0) / np.sum(gamma, axis=0)
+            newB[:, k] = np.sum(gamma[mask, :] * c[mask], axis=0) / np.sum(gamma * c, axis=0)
             # gamma: T*4; np.sum(gamma, axis=0): 1*4; B: 4*T; newB[:, k]: 4*1;
 
         if np.max(abs(pi - newpi)) < criterion and \
@@ -185,7 +222,20 @@ def train_with_EM_algo(A, B, pi, observationsSeq, criterion=0.001):
             break
 
         A, B, pi = newA, newB, newpi
-        print(A, B, pi)
+        for row in A:
+            for col in range(len(A)):
+                if np.isnan(row[col]):
+                    row[col] = 0
+        for row in B:
+            for col in range(len(B)):
+                if np.isnan(row[col]):
+                    row[col] = 0
+        for i in range(len(pi)):
+            if np.isnan(pi[i]):
+                pi[i] = 0
+        print(A)
+        print(B)
+        print(pi)
     return A, B, pi
 
 

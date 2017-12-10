@@ -159,10 +159,13 @@ def import_model(filepath='hmm_model.json'):
 
 
 if __name__ == '__main__':
-    char_list2D, tag_list2D = get_corpus(filepath='../data/train_corpus.utf8')
-    init_table = get_init_table(tag_list2D)
-    transmission_table = get_transmission_table(char_list2D, tag_list2D)
-    transition_table = get_transition_table(tag_list2D)
-    export_model()
+    init_table, transmission_table, transition_table = import_model()
+    char_list2D, tag_list2D = get_corpus(filepath='../data/train.utf8')
+    # init_table = get_init_table(tag_list2D)
+    # transmission_table = get_transmission_table(char_list2D, tag_list2D)
+    # transition_table = get_transition_table(tag_list2D)
+    # export_model()
     predicted_tag_list2D = viterbi_decoding2D(char_list2D)
     print(calculate_accuracy(tag_list2D, predicted_tag_list2D))
+
+
