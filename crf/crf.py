@@ -84,9 +84,9 @@ def generate_feature_functions(char_list2D, tag_list2D):
         for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
-                if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
-                    for pos in relative_pos:
-                        observation += char_list[i + bias + pos]
+                # if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+                for pos in relative_pos:
+                    observation += char_list[i + bias + pos]
                 tag = tag_list[i + bias]
                 pre_tag = tag_list[i + bias - 1] if id_macro[0] == 'B' else ''
                 feature_functions[id_macro + observation + pre_tag + tag] = 0
@@ -117,10 +117,10 @@ def viterbi_process(feature_functions, char_list):
         score = 0
         for id_macro, relative_pos in macros.items():
             o = ''
-            if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
-                for pos in relative_pos:
-                    observe_index = first_char_index + pos
-                    o += char_list[observe_index]
+            # if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+            for pos in relative_pos:
+                observe_index = first_char_index + pos
+                o += char_list[observe_index]
             my_pre_tag = '' if id_macro[0] == 'U' else '_T-1'
             try:
                 param = feature_functions[id_macro + o + my_pre_tag + tag]
@@ -139,10 +139,10 @@ def viterbi_process(feature_functions, char_list):
                 score = score_matrix[row_track, this_char_index - 1 - bias]  # sum of previous chars
                 for id_macro, relative_pos in macros.items():
                     o = ''
-                    if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
-                        for pos in relative_pos:
-                            observe_index = this_char_index + pos
-                            o += char_list[observe_index]
+                    # if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+                    for pos in relative_pos:
+                        observe_index = this_char_index + pos
+                        o += char_list[observe_index]
                     my_pre_tag = '' if id_macro[0] == 'U' else pre_tag
                     try:
                         param = feature_functions[id_macro + o + my_pre_tag + tag]
@@ -234,9 +234,9 @@ def get_counts(char_list2D, tag_list2D):
         for char_list, tag_list in zip(char_list2D, tag_list2D):
             for i in range(len(char_list) - bias * 2):
                 observation = ''
-                if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
-                    for pos in relative_pos:
-                        observation += char_list[i + bias + pos]
+                # if id_macro[0] == 'U':  # todo: remove observation in B macros -> transition table
+                for pos in relative_pos:
+                    observation += char_list[i + bias + pos]
                 pre_tag = '' if id_macro[0] == 'U' else tag_list[i + bias - 1]
                 tag = tag_list[i + bias]
                 key = id_macro + observation + pre_tag + tag
@@ -252,7 +252,7 @@ def filter_features(feature_functions):
     new_feature_functions = dict()
     total_num = 0
     for key in feature_functions.keys():
-        if feature_functions[key] > 1:  # todo: threshold
+        if feature_functions[key] > 20:  # todo: threshold
             right_counts[key] = feature_functions[key]
             new_feature_functions[key] = 0
             total_num += 1
@@ -310,7 +310,7 @@ def get_counts1D(char_list, tag_list):
 def train_param_each_sentence(training_set='../data/train.utf8', model='../data/crf_model.json', initial=True):
     global macros
     # Fixed:
-    macros = get_macros(template='../data/template2.utf8')
+    macros = get_macros(template='../data/template.utf8')  # todo
     print('generated macros')
     char_list2D, tag_list2D = get_corpus(training_set)
     # the previous 2 are unrelated
@@ -341,7 +341,7 @@ def train_param_each_sentence(training_set='../data/train.utf8', model='../data/
             tag_list = tag_list2D[j]
             predicted_tag_list = viterbi_process(feature_functions, char_list)
             # print(calculate_accuracy2D([tag_list], [predicted_tag_list]))
-            feature_functions = train_param(feature_functions, right[j], [char_list], [predicted_tag_list])  # todo
+            feature_functions = train_param_perS(feature_functions, right[j], [char_list], [predicted_tag_list])  # todo: invoke train_param or train_param_perS
             predicted_tag_list2D.append(predicted_tag_list)
         a = calculate_accuracy2D(tag_list2D, predicted_tag_list2D)
         accuracy.append(a)
@@ -450,21 +450,21 @@ def predict(model, test_set):
 
 
 if __name__ == '__main__':
-    # accuracy, accuracy_test = train_param_each_sentence(training_set='../data/train_corpus.utf8', model='../data/crf_perS2.json', initial=True)  # todo
+    accuracy, accuracy_test = train_param_each_sentence(training_set='../data/train_corpus.utf8', model='../data/crf_perS.json', initial=True)  # todo
     # json.dump({'train':accuracy, 'test': accuracy_test}, open('result2.json', 'w'))  # todo
     # plot_result(accuracy)
     # accuracy = []
-    train = []
-    test = []
-    with open('../data/test.json') as fopen:
-        for line in fopen:
-            t = line.split(' ')
-            train.append(float(t[0]))
-            test.append(float(t[1]))
+    # train = []
+    # test = []
+    # with open('../data/test.json') as fopen:
+    #     for line in fopen:
+    #         t = line.split(' ')
+    #         train.append(float(t[0]))
+    #         test.append(float(t[1]))
     # data = json.load(open('../data/result_B.json'))
-
-    plt.figure()
-    plt.plot(train)
-    plt.plot(test)
-    plt.show()
+    #
+    # plt.figure()
+    # plt.plot(train)
+    # plt.plot(test)
+    # plt.show()
     # predict('../data/crf_perS.json', '../data/train.utf8')
