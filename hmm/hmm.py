@@ -76,7 +76,7 @@ def get_transition_table(tag_list2D):
         total = sum(row)
         for i in range(len(row)):
             row[i] = np.log(row[i] / total) if row[i] != 0 else zero
-    return transition_table
+    return transition_table.tolist()
 
 
 def viterbi_decoding(char_list):
@@ -102,7 +102,7 @@ def viterbi_decoding(char_list):
                 if this_score == zero:
                     continue
                 if transmission_table[row].__contains__(char_list[col]):
-                    this_score += transition_table[i, row] + transmission_table[row][char_list[col]]
+                    this_score += transition_table[i][row] + transmission_table[row][char_list[col]]
                     if this_score < zero:
                         raise Exception(this_score)
                         # continue
@@ -145,7 +145,7 @@ def export_model(filepath='hmm_model.json'):
     model = {
         'init_table': init_table,
         'transmission_table': transmission_table,
-        'transition_table': transmission_table
+        'transition_table': transition_table
     }
     json.dump(model, open(filepath, 'w'))
 
@@ -158,14 +158,46 @@ def import_model(filepath='hmm_model.json'):
     return init_table, transmission_table, transition_table
 
 
+def get_corpus_without_tag(filepath):
+    char_list2D = list()
+    with codecs.open(filepath, encoding='utf8') as fopen:
+        char_list = list()
+        for line in fopen.readlines():
+            if ' ' in line:
+                char_list.append(line[0])
+            else:
+                char_list2D.append(char_list)
+                # new beginning
+                char_list = list()
+        if len(char_list):
+            char_list2D.append(char_list)
+    return char_list2D
+
+
+def write_result(char_list2D, predicted_tag_list2D, result):
+    extended = ['_I-1', '_I-2', '_I+1', '_I+2']
+    fwrite = codecs.open(result, 'w', encoding="utf8")
+    for char_list, tag_list in zip(char_list2D, predicted_tag_list2D):
+        for char, tag in zip(char_list, tag_list):
+            if char not in extended:
+                fwrite.write('%s %s\n' % (char, tag))
+    fwrite.close()
+
+
+
+
+
 if __name__ == '__main__':
     init_table, transmission_table, transition_table = import_model()
-    char_list2D, tag_list2D = get_corpus(filepath='../data/train.utf8')
+    # char_list2D, tag_list2D = get_corpus(filepath='../data/train.utf8')
     # init_table = get_init_table(tag_list2D)
     # transmission_table = get_transmission_table(char_list2D, tag_list2D)
     # transition_table = get_transition_table(tag_list2D)
     # export_model()
+    char_list2D = get_corpus_without_tag(filepath='../data/train.utf8')   # todo: test set
     predicted_tag_list2D = viterbi_decoding2D(char_list2D)
-    print(calculate_accuracy(tag_list2D, predicted_tag_list2D))
+    # print(calculate_accuracy(tag_list2D, predicted_tag_list2D))
+    write_result(char_list2D, predicted_tag_list2D, 'hmm_result.utf8')
+
 
 
