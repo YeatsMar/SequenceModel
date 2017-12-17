@@ -512,4 +512,4 @@ if __name__ == '__main__':
     # plt.plot(train)
     # plt.plot(test)
     # plt.show()
-    predict_true('../data/crf_perS2.json', '../data/train.utf8', 'test.utf8')
+    predict('../data/crf_perS2.json', '../ctb_test_corpus.utf8')

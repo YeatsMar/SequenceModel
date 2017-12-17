@@ -189,15 +189,15 @@ def write_result(char_list2D, predicted_tag_list2D, result):
 
 if __name__ == '__main__':
     init_table, transmission_table, transition_table = import_model()
-    # char_list2D, tag_list2D = get_corpus(filepath='../data/train.utf8')
+    char_list2D, tag_list2D = get_corpus(filepath='../ctb_test_corpus.utf8')
     # init_table = get_init_table(tag_list2D)
     # transmission_table = get_transmission_table(char_list2D, tag_list2D)
     # transition_table = get_transition_table(tag_list2D)
     # export_model()
-    char_list2D = get_corpus_without_tag(filepath='../data/train.utf8')   # todo: test set
+    # char_list2D = get_corpus_without_tag(filepath='../ctb_test_corpus.utf8')   # todo: test set
     predicted_tag_list2D = viterbi_decoding2D(char_list2D)
-    # print(calculate_accuracy(tag_list2D, predicted_tag_list2D))
-    write_result(char_list2D, predicted_tag_list2D, 'hmm_result.utf8')
+    print(calculate_accuracy(tag_list2D, predicted_tag_list2D))
+    # write_result(char_list2D, predicted_tag_list2D, 'hmm_result.utf8')
 
 
 
