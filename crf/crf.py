@@ -478,8 +478,11 @@ def predict_true(model, test_set, result):
     global macros
     macros = get_macros()
     feature_functions = import_model(model)
+    print('Successfully imported feature functions....')
     char_list2D = get_corpus_without_tag(test_set)
+    print('Start prediction.....')
     predicted_tag_list2D = viterbi_process2D(feature_functions, char_list2D)
+    print('Storing.....')
     fwrite = codecs.open(result, 'w', encoding="utf8")
     for char_list, tag_list in zip(char_list2D, predicted_tag_list2D):
         for char, tag in zip(char_list, tag_list):
@@ -509,4 +512,4 @@ if __name__ == '__main__':
     # plt.plot(train)
     # plt.plot(test)
     # plt.show()
-    predict_true('../data/crf_perS2.json', '../data/train_corpus.utf8', 'test.utf8')
+    predict_true('../data/crf_perS2.json', '../data/train.utf8', 'test.utf8')
